@@ -9,6 +9,7 @@
 /// https://www.reddit.com/r/FPGA/comments/qe9j6s/vectorpacking_algorithm/
 
 use std::cmp;
+use std::fmt;
 
 // Parameters for creating a new Lane or LaneArray object
 // (i.e., Options for how to initialize the key-values for sorting.)
@@ -25,7 +26,7 @@ struct Lane {
 }
 
 // Use a large penalty to increment the keys of disabled lanes.
-const PENALTY:u64 = 1u64 << 63;
+const PENALTY:u64 = 256;
 
 impl Lane {
     // Create a key-value pair based on an index and mask.
@@ -36,7 +37,7 @@ impl Lane {
         match typ {
             LaneArrayType::Simple(mask) => {
                 let pen = if mask & chk > 0 {PENALTY} else {0};
-                Lane {key: pen+idx64, meta: cmp::max(idx64,pen)}},
+                Lane {key: cmp::max(idx64,pen), meta: cmp::max(idx64,pen)}},
             LaneArrayType::Hidden(mask) => {
                 let pen = if mask & chk > 0 {PENALTY} else {0};
                 Lane {key: pen, meta: cmp::max(idx64,pen)}},
@@ -99,6 +100,33 @@ impl LaneArray {
         }
         return result
     }
+
+    // Information-deleting analogue to swap() function, shifts up
+    // by replacing any invalid inputs with a constant placeholder.
+    fn shift(&self, ops:&Vec<LaneSwap>) -> LaneArray {
+        let mut result = self.clone();
+        for LaneSwap(n1,n2) in ops.iter() {
+            if self.lanes[*n1].key < PENALTY {
+                result.lanes[*n1] = self.lanes[*n1].clone();
+                result.lanes[*n2] = self.lanes[*n2].clone();
+            } else {
+                result.lanes[*n1] = self.lanes[*n2].clone();
+                result.lanes[*n2] = Lane {key:PENALTY, meta:PENALTY};
+            }
+        }
+        return result
+    }
+}
+
+impl fmt::Display for LaneArray {
+    // Print the key values for all lanes.
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "(")?;
+        for lane in self.lanes.iter() {
+            write!(f, "{}, ", &lane.key)?;
+        }
+        write!(f, ")")
+    }
 }
 
 // Given a sorting function, test that it functions correctly
@@ -115,8 +143,14 @@ fn test_sort(len:u8, lbl:&str, sortfn:fn(&LaneArray)->LaneArray) {
         for typ in types.iter() {
             let x = LaneArray::new(len, typ);
             let y = sortfn(&x);
-            if !y.is_sorted_key() {err_key += 1;}
-            if !y.is_sorted_meta() {err_meta += 1;}
+            if !y.is_sorted_key() {
+                println!("x = {}", x);
+                println!("y = {}", y);
+                err_key += 1;
+            }
+            if !y.is_sorted_meta() {
+                err_meta += 1;
+            }
         }
     }
 
@@ -190,6 +224,26 @@ fn batcher8(p0:&LaneArray) -> LaneArray {
     return p6
 }
 
+fn bubble8(p0:&LaneArray) -> LaneArray {
+    // Bubble sort
+    // https://www.inf.hs-flensburg.de/lang/algorithmen/sortieren/networks/sortieren.htm
+    assert_eq!(p0.lanes.len(), 8usize);
+    let p1 = p0.shift(&vec![sw(0,1)]);
+    let p2 = p1.shift(&vec![sw(1,2)]);
+    let p3 = p2.shift(&vec![sw(0,1),sw(2,3)]);
+    let p4 = p3.shift(&vec![sw(1,2),sw(3,4)]);
+    let p5 = p4.shift(&vec![sw(0,1),sw(2,3),sw(4,5)]);
+    let p6 = p5.shift(&vec![sw(1,2),sw(3,4),sw(5,6)]);
+    let p7 = p6.shift(&vec![sw(0,1),sw(2,3),sw(4,5),sw(6,7)]);
+    let p8 = p7.shift(&vec![sw(1,2),sw(3,4),sw(5,6)]);
+    let p9 = p8.shift(&vec![sw(0,1),sw(2,3),sw(4,5)]);
+    let p10 = p9.shift(&vec![sw(1,2),sw(3,4)]);
+    let p11 = p10.shift(&vec![sw(0,1),sw(2,3)]);
+    let p12 = p11.shift(&vec![sw(1,2)]);
+    let p13 = p12.shift(&vec![sw(0,1)]);
+    return p13
+}
+
 fn transpose8(p0:&LaneArray) -> LaneArray {
     // Odd-even transpose sort
     // https://www.inf.hs-flensburg.de/lang/algorithmen/sortieren/networks/oetsen.htm
@@ -205,6 +259,20 @@ fn transpose8(p0:&LaneArray) -> LaneArray {
     return p8
 }
 
+fn transpose8s(p0:&LaneArray) -> LaneArray {
+    // Information-deleting analogue to "transpose8".
+    assert_eq!(p0.lanes.len(), 8usize);
+    let p1 = p0.shift(&vec![sw(0,1),sw(2,3),sw(4,5),sw(6,7)]);
+    let p2 = p1.shift(&vec![sw(1,2),sw(3,4),sw(5,6)]);
+    let p3 = p2.shift(&vec![sw(0,1),sw(2,3),sw(4,5),sw(6,7)]);
+    let p4 = p3.shift(&vec![sw(1,2),sw(3,4),sw(5,6)]);
+    let p5 = p4.shift(&vec![sw(0,1),sw(2,3),sw(4,5),sw(6,7)]);
+    let p6 = p5.shift(&vec![sw(1,2),sw(3,4),sw(5,6)]);
+    let p7 = p6.shift(&vec![sw(0,1),sw(2,3),sw(4,5),sw(6,7)]);
+    let p8 = p7.shift(&vec![sw(1,2),sw(3,4),sw(5,6)]);
+    return p8
+}
+
 // Test each of the defined sorting functions.
 fn main() {
     test_sort(4, "bitonic4a",   bitonic4a);
@@ -212,5 +280,7 @@ fn main() {
     test_sort(8, "bitonic8a",   bitonic8a);
     test_sort(8, "bitonic8b",   bitonic8b);
     test_sort(8, "batcher8",    batcher8);
+    test_sort(8, "bubble8\t",   bubble8);
     test_sort(8, "transpose8",  transpose8);
+    test_sort(8, "transpose8s", transpose8s);
 }
