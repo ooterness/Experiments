@@ -244,6 +244,19 @@ fn bubble8(p0:&LaneArray) -> LaneArray {
     return p13
 }
 
+fn pairwise8(p0:&LaneArray) -> LaneArray {
+    // Pairwise sorting network
+    // https://en.wikipedia.org/wiki/Pairwise_sorting_network
+    assert_eq!(p0.lanes.len(), 8usize);
+    let p1 = p0.swap(&vec![sw(0,1),sw(2,3),sw(4,5),sw(6,7)]);
+    let p2 = p1.swap(&vec![sw(0,2),sw(1,3),sw(4,6),sw(5,7)]);
+    let p3 = p2.swap(&vec![sw(0,4),sw(1,5),sw(2,6),sw(3,7)]);
+    let p4 = p3.swap(&vec![sw(2,4),sw(3,5)]);
+    let p5 = p4.swap(&vec![sw(1,4),sw(3,6)]);
+    let p6 = p5.swap(&vec![sw(1,2),sw(3,4),sw(5,6)]);
+    return p6
+}
+
 fn transpose8(p0:&LaneArray) -> LaneArray {
     // Odd-even transpose sort
     // https://www.inf.hs-flensburg.de/lang/algorithmen/sortieren/networks/oetsen.htm
@@ -281,6 +294,7 @@ fn main() {
     test_sort(8, "bitonic8b",   bitonic8b);
     test_sort(8, "batcher8",    batcher8);
     test_sort(8, "bubble8\t",   bubble8);
+    test_sort(8, "pairwise8",   pairwise8);
     test_sort(8, "transpose8",  transpose8);
     test_sort(8, "transpose8s", transpose8s);
 }
