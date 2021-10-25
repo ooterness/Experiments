@@ -286,6 +286,38 @@ fn transpose8s(p0:&LaneArray) -> LaneArray {
     return p8
 }
 
+fn transpose3s(p0:&LaneArray) -> LaneArray {
+    // Test variants of "transpose8s" with unusual sizes.
+    assert_eq!(p0.lanes.len(), 3usize);
+    let p1 = p0.shift(&vec![sw(0,1)]);
+    let p2 = p1.shift(&vec![sw(1,2)]);
+    let p3 = p2.shift(&vec![sw(0,1)]);
+    return p3
+}
+
+fn transpose5s(p0:&LaneArray) -> LaneArray {
+    // Test variants of "transpose8s" with unusual sizes.
+    assert_eq!(p0.lanes.len(), 5usize);
+    let p1 = p0.shift(&vec![sw(0,1),sw(2,3)]);
+    let p2 = p1.shift(&vec![sw(1,2),sw(3,4)]);
+    let p3 = p2.shift(&vec![sw(0,1),sw(2,3)]);
+    let p4 = p3.shift(&vec![sw(1,2),sw(3,4)]);
+    let p5 = p4.shift(&vec![sw(0,1),sw(2,3)]);
+    return p5
+}
+
+fn transpose6s(p0:&LaneArray) -> LaneArray {
+    // Test variants of "transpose8s" with unusual sizes.
+    assert_eq!(p0.lanes.len(), 6usize);
+    let p1 = p0.shift(&vec![sw(0,1),sw(2,3),sw(4,5)]);
+    let p2 = p1.shift(&vec![sw(1,2),sw(3,4)]);
+    let p3 = p2.shift(&vec![sw(0,1),sw(2,3),sw(4,5)]);
+    let p4 = p3.shift(&vec![sw(1,2),sw(3,4)]);
+    let p5 = p4.shift(&vec![sw(0,1),sw(2,3),sw(4,5)]);
+    let p6 = p5.shift(&vec![sw(1,2),sw(3,4)]);
+    return p6
+}
+
 // Test each of the defined sorting functions.
 fn main() {
     test_sort(4, "bitonic4a",   bitonic4a);
@@ -297,4 +329,7 @@ fn main() {
     test_sort(8, "pairwise8",   pairwise8);
     test_sort(8, "transpose8",  transpose8);
     test_sort(8, "transpose8s", transpose8s);
+    test_sort(3, "transpose3s", transpose3s);
+    test_sort(5, "transpose5s", transpose5s);
+    test_sort(6, "transpose6s", transpose6s);
 }
